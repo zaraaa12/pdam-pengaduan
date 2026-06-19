@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html class="light" lang="id">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Layanan Pengaduan Pelanggan - Tirta Jaya Mandiri</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "on-primary-container": "#799dd6",
+          "on-error-container": "#93000a",
+          "secondary-fixed-dim": "#82cfff",
+          "surface-container-lowest": "#ffffff",
+          "primary-fixed-dim": "#a7c8ff",
+          "tertiary-container": "#003a3a",
+          "on-error": "#ffffff",
+          "on-background": "#191c1d",
+          "on-surface": "#191c1d",
+          "on-secondary": "#ffffff",
+          "tertiary-fixed": "#93f2f2",
+          "on-secondary-fixed-variant": "#004c6b",
+          "error": "#ba1a1a",
+          "on-tertiary-fixed-variant": "#004f4f",
+          "surface": "#f8f9fa",
+          "surface-container": "#edeeef",
+          "primary-fixed": "#d5e3ff",
+          "surface-container-highest": "#e1e3e4",
+          "outline": "#737780",
+          "inverse-surface": "#2e3132",
+          "secondary-fixed": "#c6e7ff",
+          "inverse-primary": "#a7c8ff",
+          "secondary-container": "#2dbcfe",
+          "primary": "#001e40",
+          "on-surface-variant": "#43474f",
+          "outline-variant": "#c3c6d1",
+          "error-container": "#ffdad6",
+          "on-tertiary-fixed": "#002020",
+          "on-secondary-container": "#004866",
+          "on-primary-fixed": "#001b3c",
+          "secondary": "#00658d",
+          "inverse-on-surface": "#f0f1f2",
+          "background": "#f8f9fa",
+          "surface-tint": "#3a5f94",
+          "on-primary": "#ffffff",
+          "tertiary": "#002323",
+          "on-primary-fixed-variant": "#1f477b",
+          "on-secondary-fixed": "#001e2d",
+          "surface-dim": "#d9dadb",
+          "primary-container": "#003366",
+          "on-tertiary-container": "#47aaaa",
+          "surface-container-low": "#f3f4f5",
+          "surface-container-high": "#e7e8e9",
+          "surface-variant": "#e1e3e4",
+          "on-tertiary": "#ffffff",
+          "tertiary-fixed-dim": "#76d6d5",
+          "surface-bright": "#f8f9fa"
+        },
+        borderRadius: {
+          DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"
+        },
+        spacing: {
+          "unit-lg": "24px", "unit-md": "16px", "gutter": "24px",
+          "unit-sm": "8px", "margin-mobile": "16px", "unit-xs": "4px",
+          "container-max": "1280px", "unit-xl": "48px",
+          "margin-tablet": "32px", "margin-desktop": "64px"
+        },
+        fontFamily: {
+          "label-sm": ["Inter"], "body-lg": ["Inter"],
+          "display-lg-mobile": ["Montserrat"], "display-lg": ["Montserrat"],
+          "label-md": ["Inter"], "body-md": ["Inter"],
+          "headline-sm": ["Montserrat"], "headline-md": ["Montserrat"]
+        },
+        fontSize: {
+          "label-sm": ["12px", { lineHeight: "16px", fontWeight: "500" }],
+          "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+          "display-lg-mobile": ["32px", { lineHeight: "40px", fontWeight: "700" }],
+          "display-lg": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+          "label-md": ["14px", { lineHeight: "20px", fontWeight: "600" }],
+          "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+          "headline-sm": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+          "headline-md": ["32px", { lineHeight: "40px", fontWeight: "600" }]
+        }
+      }
+    }
+  }
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  /* Spinner animasi untuk tombol loading */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; display: inline-block; }
+
+  /* Flash error styling */
+  .flash-error {
+    background: #ffdad6;
+    border: 1px solid #ba1a1a;
+    color: #93000a;
+    border-radius: 0.5rem;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+</style>
+</head>
+
+<body class="bg-background text-on-background font-body-md">
+
+<!-- ── Top Nav ─────────────────────────────────────────────────────────── -->
+<header class="bg-surface/80 backdrop-blur-md font-label-md text-label-md top-0 sticky border-b border-outline-variant/30 shadow-sm z-50">
+  <nav class="flex justify-between items-center px-margin-desktop max-w-container-max mx-auto h-unit-xl">
+    <div class="font-headline-sm text-headline-sm font-bold text-primary">Tirta Jaya Mandiri</div>
+    <div class="flex items-center gap-unit-md">
+      <button class="md:hidden text-primary">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <!-- ── Hero ─────────────────────────────────────────────────────────── -->
+  <section class="relative h-[400px] flex items-center overflow-hidden">
+    <div class="absolute inset-0 bg-primary/40 z-10"></div>
+    <img
+      class="absolute inset-0 w-full h-full object-cover"
+      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBW2s__qCA7emhisVNvCasaIfvH2JVSe0Yy_KdXlDeesZgDNr5hhuWbBwrna3u0l_SvG79ACFMYUMMIIwfDfWL8LH6B-4gBedcgJzHjElMJ6ZyYvM4-RzmC7mY2EJF9j245SQAOci5G0bi_80iTArB6M-lZodwz0VciffyyxGuIKDNKlb7InFee_F35DfTizGhpWRDaCkGRPjX0s4E6nxRUCoMjY2YmzoPHre-_G5eZJibg_LpWhKOki6MTd8uT0y39OkxnS4dMBI"
+      alt="Sumber air bersih Sukabumi"
+    >
+    <div class="relative z-20 px-margin-desktop max-w-container-max mx-auto w-full">
+      <div class="max-w-2xl text-on-primary">
+        <h1 class="font-display-lg text-display-lg mb-unit-md drop-shadow-lg">Layanan Pengaduan Pelanggan</h1>
+        <p class="font-body-lg text-body-lg text-on-primary/90 leading-relaxed">
+          Sampaikan keluhan Anda untuk membantu kami meningkatkan kualitas layanan bagi masyarakat Kabupaten Sukabumi.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Content Section ───────────────────────────────────────────────── -->
+  <section class="px-margin-desktop max-w-container-max mx-auto -mt-20 relative z-30 mb-unit-xl">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+
+      <!-- ── Form Utama ───────────────────────────────────────────────── -->
+      <div class="lg:col-span-8">
+        <div class="bg-surface p-unit-xl rounded-xl shadow-sm border border-outline-variant/30">
+
+          <!-- Header form -->
+          <div class="flex items-center gap-unit-sm mb-unit-lg text-primary">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">report</span>
+            <h2 class="font-headline-sm text-headline-sm">Formulir Pengaduan</h2>
+          </div>
+
+          <!-- Flash error dari server -->
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="flash-error">
+                  <span class="material-symbols-outlined text-base">error</span>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+
+          <!-- FORM — action POST ke /submit -->
+          <form class="space-y-unit-lg" id="complaintForm" method="POST" action="/submit">
+
+            <!-- Baris 1: Nama & No Sambung -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-unit-lg">
+              <div class="space-y-unit-xs">
+                <label class="font-label-sm text-label-sm text-on-surface-variant block" for="nama_pelanggan">
+                  Nama Pelanggan <span class="text-error">*</span>
+                </label>
+                <input
+                  class="w-full rounded-lg border-outline-variant focus:border-secondary focus:ring-secondary transition-all px-unit-md py-unit-sm bg-surface-container-low"
+                  id="nama_pelanggan"
+                  name="nama_pelanggan"
+                  placeholder="Masukkan nama lengkap"
+                  required
+                  type="text"
+                >
+              </div>
+              <div class="space-y-unit-xs">
+                <label class="font-label-sm text-label-sm text-on-surface-variant block" for="no_sambung">
+                  No. Sambung <span class="text-on-surface-variant/50">(Opsional)</span>
+                </label>
+                <input
+                  class="w-full rounded-lg border-outline-variant focus:border-secondary focus:ring-secondary transition-all px-unit-md py-unit-sm bg-surface-container-low"
+                  id="no_sambung"
+                  name="no_sambung"
+                  placeholder="Contoh: 12345678"
+                  type="text"
+                >
+              </div>
+            </div>
+
+            <!-- Baris 2: Cabang & Tanggal -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-unit-lg">
+              <div class="space-y-unit-xs">
+                <label class="font-label-sm text-label-sm text-on-surface-variant block" for="cabang">
+                  Cabang / Wilayah Layanan <span class="text-error">*</span>
+                </label>
+                <select
+                  class="w-full rounded-lg border-outline-variant focus:border-secondary focus:ring-secondary transition-all px-unit-md py-unit-sm bg-surface-container-low"
+                  id="cabang"
+                  name="cabang"
+                  required
+                >
+                  <option disabled selected value="">Pilih Wilayah</option>
+                  {% for cab in cabang_list %}
+                    <option value="{{ cab }}">{{ cab.title() }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="space-y-unit-xs">
+                <label class="font-label-sm text-label-sm text-on-surface-variant block">
+                  Tanggal Pengaduan
+                </label>
+                <input
+                  class="w-full rounded-lg border-outline-variant bg-surface-container-highest cursor-not-allowed px-unit-md py-unit-sm text-on-surface-variant"
+                  readonly
+                  type="text"
+                  value="{{ tanggal }}"
+                >
+                <!-- Field tersembunyi ISO date untuk backend -->
+                <input type="hidden" name="tgl_pengaduan" value="{{ tanggal_iso }}">
+              </div>
+            </div>
+
+            <!-- Jenis Pengaduan (Checkboxes) -->
+            <div class="space-y-unit-md">
+              <label class="font-label-sm text-label-sm text-on-surface-variant block">
+                Jenis Pengaduan <span class="text-on-surface-variant/50">(pilih semua yang sesuai)</span>
+              </label>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-unit-md">
+
+                <label class="flex items-center gap-unit-sm group cursor-pointer p-unit-sm rounded-lg hover:bg-surface-container-low transition-colors">
+                  <input class="w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary" type="checkbox" name="kebocoran_pipa" value="1">
+                  <span class="text-body-md group-hover:text-primary transition-colors">Kebocoran Pipa</span>
+                </label>
+
+                <label class="flex items-center gap-unit-sm group cursor-pointer p-unit-sm rounded-lg hover:bg-surface-container-low transition-colors">
+                  <input class="w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary" type="checkbox" name="kebocoran_instalatur" value="1">
+                  <span class="text-body-md group-hover:text-primary transition-colors">Kebocoran Instalatur</span>
+                </label>
+
+                <label class="flex items-center gap-unit-sm group cursor-pointer p-unit-sm rounded-lg hover:bg-surface-container-low transition-colors">
+                  <input class="w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary" type="checkbox" name="air_mati" value="1">
+                  <span class="text-body-md group-hover:text-primary transition-colors">Air Mati / Macet</span>
+                </label>
+
+                <label class="flex items-center gap-unit-sm group cursor-pointer p-unit-sm rounded-lg hover:bg-surface-container-low transition-colors">
+                  <input class="w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary" type="checkbox" name="tagihan" value="1">
+                  <span class="text-body-md group-hover:text-primary transition-colors">Tagihan Melonjak</span>
+                </label>
+
+                <label class="flex items-center gap-unit-sm group cursor-pointer p-unit-sm rounded-lg hover:bg-surface-container-low transition-colors">
+                  <input class="w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary" type="checkbox" name="water_meter" value="1">
+                  <span class="text-body-md group-hover:text-primary transition-colors">Water Meter Rusak</span>
+                </label>
+
+                <label class="flex items-center gap-unit-sm group cursor-pointer p-unit-sm rounded-lg hover:bg-surface-container-low transition-colors">
+                  <input class="w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary" type="checkbox" name="lainnya" value="1">
+                  <span class="text-body-md group-hover:text-primary transition-colors">Lainnya</span>
+                </label>
+
+              </div>
+            </div>
+
+            <!-- Alamat & Rincian -->
+            <div class="space-y-unit-xs">
+              <label class="font-label-sm text-label-sm text-on-surface-variant block" for="alamat_rincian">
+                Alamat &amp; Rincian Keluhan <span class="text-error">*</span>
+              </label>
+              <textarea
+                class="w-full rounded-lg border-outline-variant focus:border-secondary focus:ring-secondary transition-all px-unit-md py-unit-sm bg-surface-container-low"
+                id="alamat_rincian"
+                name="alamat_rincian"
+                placeholder="Tuliskan alamat lengkap dan detail kendala yang dialami..."
+                required
+                rows="5"
+              ></textarea>
+            </div>
+
+            <!-- Submit -->
+            <div class="pt-unit-md border-t border-outline-variant/20 flex flex-col md:flex-row items-center justify-between gap-unit-md">
+              <p class="text-label-sm text-on-surface-variant/60 italic max-w-sm">
+                Dengan menekan tombol Kirim, Anda menyetujui bahwa data yang Anda berikan akan digunakan untuk keperluan tindak lanjut layanan.
+              </p>
+              <button
+                class="w-full md:w-auto bg-secondary text-on-primary px-unit-xl py-unit-md rounded-lg font-label-md hover:bg-primary transition-all active:scale-95 flex items-center justify-center gap-unit-sm shadow-md"
+                id="submitBtn"
+                type="submit"
+              >
+                <span class="material-symbols-outlined" id="btnIcon">send</span>
+                <span id="btnText">Kirim Pengaduan</span>
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Sidebar Kanan ─────────────────────────────────────────────── -->
+      <div class="lg:col-span-4 space-y-gutter">
+
+        <!-- Kontak Darurat -->
+        <div class="bg-primary text-on-primary p-unit-lg rounded-xl shadow-lg border border-primary-container relative overflow-hidden">
+          <div class="absolute -right-8 -top-8 opacity-10">
+            <span class="material-symbols-outlined text-[120px]">support_agent</span>
+          </div>
+          <h3 class="font-headline-sm text-headline-sm mb-unit-sm">Laporan Mendesak?</h3>
+          <p class="font-body-md text-on-primary/80 mb-unit-lg">
+            Untuk laporan kebocoran pipa besar atau gangguan total segera hubungi kami melalui kanal darurat:
+          </p>
+          <div class="space-y-unit-md">
+            <a class="flex items-center gap-unit-md bg-white/10 hover:bg-white/20 p-unit-sm rounded-lg transition-all group" href="tel:+6281563547466">
+              <div class="bg-secondary p-unit-xs rounded-md">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">call</span>
+              </div>
+              <div>
+                <div class="text-label-sm opacity-70">Call Center</div>
+                <div class="font-bold text-body-lg">+62 815-6354-7466</div>
+              </div>
+            </a>
+            <a class="flex items-center gap-unit-md bg-white/10 hover:bg-white/20 p-unit-sm rounded-lg transition-all group" href="https://l1nq.com/zjrhv4a" target="_blank">
+              <div class="bg-green-600 p-unit-xs rounded-md">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+              </div>
+              <div>
+                <div class="text-label-sm opacity-70">WhatsApp Admin</div>
+                <div class="font-bold text-body-lg">Click Here</div>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- Alur Penanganan -->
+        <div class="bg-surface p-unit-lg rounded-xl border border-outline-variant/30 space-y-unit-md">
+          <h3 class="font-label-md text-label-md text-primary uppercase tracking-wider">Alur Penanganan</h3>
+          <div class="space-y-unit-lg">
+
+            <div class="flex gap-unit-md relative">
+              <div class="h-full w-0.5 bg-secondary/20 absolute left-4 top-8 -z-0"></div>
+              <div class="bg-secondary-container w-8 h-8 rounded-full flex items-center justify-center text-on-secondary-container shrink-0 z-10 font-bold">1</div>
+              <div>
+                <p class="font-label-md text-primary">Penerimaan Laporan</p>
+                <p class="text-label-sm text-on-surface-variant">Laporan Anda akan terdaftar di sistem pusat pengaduan.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-unit-md relative">
+              <div class="h-full w-0.5 bg-secondary/20 absolute left-4 top-8 -z-0"></div>
+              <div class="bg-secondary-container/50 w-8 h-8 rounded-full flex items-center justify-center text-on-secondary-container shrink-0 z-10 font-bold">2</div>
+              <div>
+                <p class="font-label-md text-primary">Verifikasi Lapangan</p>
+                <p class="text-label-sm text-on-surface-variant">Tim teknis kami akan memverifikasi lokasi dan jenis kendala.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-unit-md">
+              <div class="bg-secondary-container/30 w-8 h-8 rounded-full flex items-center justify-center text-on-secondary-container shrink-0 z-10 font-bold">3</div>
+              <div>
+                <p class="font-label-md text-primary">Tindakan &amp; Perbaikan</p>
+                <p class="text-label-sm text-on-surface-variant">Proses perbaikan dilakukan sesuai skala prioritas kerugian.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────── -->
+<footer class="bg-primary text-on-primary font-body-md shadow-inner">
+  <div class="grid grid-cols-1 md:grid-cols-12 gap-gutter px-margin-desktop py-unit-xl max-w-container-max mx-auto">
+    <div class="md:col-span-5 space-y-unit-md">
+      <div class="font-headline-md text-headline-md font-extrabold text-on-primary">Tirta Jaya Mandiri</div>
+      <p class="text-on-primary/80 max-w-md">
+        PERUMDA Air Minum Tirta Jaya Mandiri Kabupaten Sukabumi. Berdedikasi menyediakan air bersih berkualitas untuk seluruh warga Sukabumi dengan integritas dan profesionalisme.
+      </p>
+      <div class="flex gap-unit-md">
+        <a class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-secondary-container transition-all hover:scale-105 duration-300" href="#">
+          <span class="material-symbols-outlined">face_nod</span>
+        </a>
+        <a class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-secondary-container transition-all hover:scale-105 duration-300" href="#">
+          <span class="material-symbols-outlined">alternate_email</span>
+        </a>
+      </div>
+    </div>
+    <div class="md:col-span-3"></div>
+    <div class="md:col-span-4 space-y-unit-md">
+      <h4 class="font-label-md font-bold text-secondary-container uppercase">Hubungi Kami</h4>
+      <p class="text-on-primary/80">Jl. Cireundeu No.5, Karangtengah, Cibadak Sukabumi Jawa Barat, Indonesia</p>
+      <p class="text-on-primary/80">
+        Instagram: @perumdam_am_tjm<br>
+        Tiktok: @perumdaamtjmsukabumi<br>
+        Website: perumdatjmsukabumikab.com
+      </p>
+    </div>
+  </div>
+  <div class="px-margin-desktop py-unit-md border-t border-white/10 text-center text-on-primary/60 text-label-sm">
+    © 2025 PERUMDA Air Minum Tirta Jaya Mandiri Kabupaten Sukabumi. Melayani Dengan Hati.
+  </div>
+</footer>
+
+<script>
+  // Loading state saat tombol ditekan
+  document.getElementById('complaintForm').addEventListener('submit', function(e) {
+    const btn  = document.getElementById('submitBtn');
+    const icon = document.getElementById('btnIcon');
+    const text = document.getElementById('btnText');
+
+    // Validasi: minimal satu checkbox harus dipilih
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+    if (!anyChecked) {
+      e.preventDefault();
+      alert('Mohon pilih setidaknya satu jenis pengaduan.');
+      return;
+    }
+
+    btn.disabled = true;
+    icon.classList.add('animate-spin');
+    icon.textContent = 'sync';
+    text.textContent = 'Mengirim...';
+  });
+</script>
+
+</body>
+</html>

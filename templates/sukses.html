@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html class="light" lang="id">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Pengaduan Terkirim - Tirta Jaya Mandiri</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface": "#f8f9fa", "surface-container-low": "#f3f4f5",
+          "surface-container": "#edeeef", "surface-container-high": "#e7e8e9",
+          "outline-variant": "#c3c6d1", "on-surface": "#191c1d",
+          "on-surface-variant": "#43474f", "primary": "#001e40",
+          "primary-container": "#003366", "on-primary": "#ffffff",
+          "secondary": "#00658d", "secondary-container": "#2dbcfe",
+          "on-secondary-container": "#004866", "on-background": "#191c1d",
+          "background": "#f8f9fa", "inverse-surface": "#2e3132",
+        },
+        spacing: {
+          "unit-xs": "4px", "unit-sm": "8px", "unit-md": "16px",
+          "unit-lg": "24px", "unit-xl": "48px", "gutter": "24px",
+          "margin-desktop": "64px", "container-max": "1280px"
+        },
+        fontFamily: {
+          "label-sm": ["Inter"], "body-md": ["Inter"], "body-lg": ["Inter"],
+          "label-md": ["Inter"], "headline-sm": ["Montserrat"], "headline-md": ["Montserrat"]
+        },
+        fontSize: {
+          "label-sm": ["12px", { lineHeight: "16px", fontWeight: "500" }],
+          "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+          "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+          "label-md": ["14px", { lineHeight: "20px", fontWeight: "600" }],
+          "headline-sm": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+          "headline-md": ["32px", { lineHeight: "40px", fontWeight: "600" }]
+        }
+      }
+    }
+  }
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+
+  @keyframes checkPop {
+    0%   { transform: scale(0); opacity: 0; }
+    70%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-check { animation: checkPop 0.5s cubic-bezier(.36,.07,.19,.97) 0.2s forwards; opacity: 0; }
+</style>
+</head>
+
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+
+<!-- ── Top Nav ─────────────────────────────────────────────────────────── -->
+<header class="bg-surface/80 backdrop-blur-md font-label-md top-0 sticky border-b border-outline-variant/30 shadow-sm z-50">
+  <nav class="flex justify-between items-center px-margin-desktop max-w-container-max mx-auto" style="height:48px;">
+    <div class="font-headline-sm text-headline-sm font-bold text-primary">Tirta Jaya Mandiri</div>
+  </nav>
+</header>
+
+<!-- ── Success Content ─────────────────────────────────────────────────── -->
+<main class="flex-1 flex items-center justify-center px-unit-md py-unit-xl">
+  <div class="max-w-lg w-full text-center space-y-unit-lg animate-fade-in-up">
+
+    <!-- Ikon centang besar -->
+    <div class="flex justify-center">
+      <div class="w-24 h-24 rounded-full bg-secondary/10 flex items-center justify-center animate-check">
+        <span class="material-symbols-outlined text-secondary" style="font-size:56px; font-variation-settings: 'FILL' 1;">check_circle</span>
+      </div>
+    </div>
+
+    <!-- Judul & deskripsi -->
+    <div class="space-y-unit-sm">
+      <h1 class="font-headline-md text-headline-md text-primary">Pengaduan Terkirim!</h1>
+      <p class="font-body-lg text-on-surface-variant">
+        Terima kasih telah melaporkan keluhan Anda. Tim kami akan segera menindaklanjuti laporan ini.
+      </p>
+    </div>
+
+    <!-- Kartu Nomor Tiket -->
+    <div class="bg-surface border border-outline-variant/30 rounded-xl p-unit-lg shadow-sm space-y-unit-sm">
+      <p class="font-label-sm text-on-surface-variant uppercase tracking-wider">Nomor Tiket Pengaduan</p>
+      <div class="font-headline-md text-headline-md text-secondary font-bold tracking-widest">
+        #{{ "%05d"|format(tiket|int) }}
+      </div>
+      <p class="font-label-sm text-on-surface-variant">{{ tanggal }}</p>
+      <p class="font-label-sm text-on-surface-variant/60 italic mt-unit-xs">
+        Simpan nomor tiket ini sebagai bukti pengaduan Anda.
+      </p>
+    </div>
+
+    <!-- Alur singkat -->
+    <div class="bg-surface border border-outline-variant/30 rounded-xl p-unit-lg text-left shadow-sm">
+      <h3 class="font-label-md text-label-md text-primary uppercase tracking-wider mb-unit-md">Selanjutnya</h3>
+      <div class="space-y-unit-md">
+        <div class="flex items-start gap-unit-md">
+          <div class="bg-secondary-container/60 w-7 h-7 rounded-full flex items-center justify-center text-on-secondary-container shrink-0 font-bold text-label-sm">1</div>
+          <div>
+            <p class="font-label-md text-primary text-sm">Verifikasi Lapangan</p>
+            <p class="font-label-sm text-on-surface-variant">Tim teknis kami akan memverifikasi lokasi dalam 1×24 jam.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-unit-md">
+          <div class="bg-secondary-container/40 w-7 h-7 rounded-full flex items-center justify-center text-on-secondary-container shrink-0 font-bold text-label-sm">2</div>
+          <div>
+            <p class="font-label-md text-primary text-sm">Tindakan Perbaikan</p>
+            <p class="font-label-sm text-on-surface-variant">Perbaikan dilakukan sesuai skala prioritas dan jenis kerusakan.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tombol kembali -->
+    <div class="flex flex-col sm:flex-row gap-unit-md justify-center pt-unit-sm">
+      <a
+        href="/"
+        class="bg-secondary text-on-primary px-unit-xl py-unit-md rounded-lg font-label-md hover:bg-primary transition-all active:scale-95 flex items-center justify-center gap-unit-sm shadow-md"
+      >
+        <span class="material-symbols-outlined" style="font-size:20px;">add_circle</span>
+        Buat Pengaduan Baru
+      </a>
+      <a
+        href="https://perumdatjmsukabumikab.com"
+        target="_blank"
+        class="border border-outline-variant text-primary px-unit-xl py-unit-md rounded-lg font-label-md hover:bg-surface-container transition-all flex items-center justify-center gap-unit-sm"
+      >
+        <span class="material-symbols-outlined" style="font-size:20px;">home</span>
+        Kembali ke Website
+      </a>
+    </div>
+
+  </div>
+</main>
+
+<!-- ── Footer tipis ─────────────────────────────────────────────────────── -->
+<footer class="bg-primary text-on-primary">
+  <div class="px-margin-desktop py-unit-md text-center text-on-primary/60 text-label-sm">
+    © 2025 PERUMDA Air Minum Tirta Jaya Mandiri Kabupaten Sukabumi. Melayani Dengan Hati.
+  </div>
+</footer>
+
+</body>
+</html>
