@@ -196,6 +196,60 @@ div[data-testid="stRadio"] > div > label > div:first-child { display: none !impo
 .stTextInput input { background:#181e3a !important; border:1px solid rgba(255,255,255,0.12) !important;
                      color:white !important; border-radius:8px !important; }
 .stTextInput input::placeholder { color:#4a5578 !important; }
+
+/* Interactive Table Styling */
+.th-cell {
+    background: #181e3a; color: #7b8ab8; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.6px; padding: 9px 8px; border-radius: 6px;
+    white-space: nowrap; text-transform: uppercase;
+}
+.td-no { color: #5a6490; font-size: 0.75rem; font-weight: 600; }
+.td-nama { color: white; font-size: 0.82rem; font-weight: 600; line-height: 1.25; }
+.td-telp { color: #5a6490; font-size: 0.68rem; margin-top: 2px; }
+.td-kec { color: #818cf8; font-size: 0.8rem; }
+.td-bln { color: #7b8ab8; font-size: 0.78rem; }
+.td-rin { color: #9aa3c8; font-size: 0.78rem; line-height: 1.25; }
+.td-tgl { color: #7b8ab8; font-size: 0.75rem; }
+.td-dur { color: #f59e0b; font-weight: 700; font-size: 0.8rem; }
+
+/* Table Action Buttons */
+div[data-testid="column"] button:has(p:contains("✏️")),
+div[data-testid="column"] button:has(span:contains("✏️")) {
+    background: rgba(99, 102, 241, 0.15) !important;
+    border: 1px solid rgba(99, 102, 241, 0.4) !important;
+    color: #a5b4fc !important;
+    padding: 0 !important;
+    min-height: 32px !important;
+    height: 32px !important;
+    width: 100% !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+div[data-testid="column"] button:has(p:contains("✏️")):hover,
+div[data-testid="column"] button:has(span:contains("✏️")):hover {
+    background: rgba(99, 102, 241, 0.35) !important;
+    border-color: #818cf8 !important;
+    transform: translateY(-1px);
+}
+
+div[data-testid="column"] button:has(p:contains("🗑️")),
+div[data-testid="column"] button:has(span:contains("🗑️")) {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border: 1px solid rgba(239, 68, 68, 0.4) !important;
+    color: #fca5a5 !important;
+    padding: 0 !important;
+    min-height: 32px !important;
+    height: 32px !important;
+    width: 100% !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+div[data-testid="column"] button:has(p:contains("🗑️")):hover,
+div[data-testid="column"] button:has(span:contains("🗑️")):hover {
+    background: rgba(239, 68, 68, 0.35) !important;
+    border-color: #f87171 !important;
+    transform: translateY(-1px);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -218,11 +272,15 @@ def recluster(r: dict) -> str:
     if r.get("water_meter_rusak"):   return "PELAYANAN"
     return "LAINNYA"
 
+@st.cache_data(ttl=60)
+def _load_data_cached(cabang: str) -> pd.DataFrame:
+    return _db.fetch_pengaduan(cabang)
+
 def get_df() -> pd.DataFrame:
     if not DB_OK:
         return pd.DataFrame()
     cabang = st.session_state.user["cabang"] if st.session_state.user["role"] == "cabang" else None
-    return _db.fetch_pengaduan(cabang)
+    return _load_data_cached(cabang)
 
 def sbadge(s):
     s = str(s).upper()
@@ -236,6 +294,16 @@ def cbadge(c):
     if c=="REKENING AIR": return '<span class="brekening">💰 Rekening</span>'
     if c=="PELAYANAN":    return '<span class="bpelayan">🔩 Pelayanan</span>'
     return '<span class="blainnya">📌 Lainnya</span>'
+
+# Auto-restore session dari st.query_params jika halaman di-refresh (F5)
+if not st.session_state.logged_in and DB_OK:
+    saved_user = st.query_params.get("session_user")
+    if saved_user:
+        user_info = _db.get_user_by_username(saved_user)
+        if user_info:
+            st.session_state.logged_in = True
+            st.session_state.user = user_info
+            _load_data_cached.clear()  # Pastikan data terbaru di-fetch dari MySQL saat refresh
 
 # LOGIN PAGE
 if not st.session_state.logged_in:
@@ -310,6 +378,8 @@ if not st.session_state.logged_in:
                         st.session_state.logged_in    = True
                         st.session_state.user         = result
                         st.session_state.login_error  = ""
+                        st.query_params["session_user"] = result["username"]
+                        _load_data_cached.clear()
                         st.rerun()
                     else:
                         st.session_state.login_error = "Username atau password salah."
@@ -317,13 +387,7 @@ if not st.session_state.logged_in:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # Hint password default
-        st.markdown("""
-        <div style="text-align:center;margin-top:16px;color:#3d4468;font-size:.75rem;">
-          Password default semua akun:
-          <code style="color:#818cf8;background:#1a2040;padding:2px 8px;border-radius:4px;margin-left:4px;">Pdam@2025</code>
-        </div>
-        """, unsafe_allow_html=True)
+        # Hint password dihapus sesuai permintaan
 
     st.stop()   
 
@@ -420,6 +484,143 @@ components.html("""
 </script>
 """, height=0, scrolling=False)
 
+# ── Dialogs: Edit & Delete Pengaduan (Dipanggil dari Tabel Data Interaktif) ──
+@st.dialog("✏️ Edit Data Pengaduan", width="large")
+def dialog_edit_pengaduan(row_id: int):
+    df_curr = get_df()
+    match = df_curr[df_curr["No"].astype(str) == str(row_id)]
+    if match.empty:
+        _load_data_cached.clear()
+        df_curr = get_df()
+        match = df_curr[df_curr["No"].astype(str) == str(row_id)]
+    if match.empty:
+        st.error(f"Data dengan ID #{row_id} tidak ditemukan.")
+        return
+    row = match.iloc[0]
+
+    foto_val = str(row.get("Foto")).strip() if pd.notna(row.get("Foto")) and str(row.get("Foto")).strip() not in ("", "None", "nan") else None
+
+    st.markdown(f"""
+    <div style="background:#161b36;border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <span style="color:#818cf8;font-weight:700;">ID #{row_id}</span> &nbsp;|&nbsp;
+        <b style="color:white;">{row['Nama_Pelanggan']}</b> &nbsp;|&nbsp;
+        <span style="color:#9aa3c8;">{row['Cabang']}</span>
+      </div>
+      <div>
+        {cbadge(row['Cluster'])} &nbsp; {sbadge(row['Status'])}
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form(f"form_dialog_edit_{row_id}"):
+        c1, c2 = st.columns(2)
+        with c1:
+            nm = st.text_input("Nama Pelanggan *", value=str(row["Nama_Pelanggan"]))
+            tl = st.text_input("No. Telepon / HP", value=str(row["No_Telp"]) if pd.notna(row.get("No_Telp")) and str(row.get("No_Telp")) not in ("None","nan") else "")
+            ns = st.text_input("No. Sambung", value=str(row["No_Sambung"]) if pd.notna(row.get("No_Sambung")) and str(row.get("No_Sambung")) not in ("None","nan") else "")
+            al = st.text_area("Alamat Lengkap", value=str(row["Alamat"]) if pd.notna(row.get("Alamat")) and str(row.get("Alamat")) not in ("None","nan") else "", height=80)
+            cb = st.selectbox("Cabang", CABANG_LIST, index=CABANG_LIST.index(row["Cabang"]) if row["Cabang"] in CABANG_LIST else 0) if is_pusat else user_cabang
+            if not is_pusat:
+                st.text_input("Cabang", value=user_cabang, disabled=True)
+            bl = st.selectbox("Bulan", BULAN_ORDER, index=BULAN_ORDER.index(row["Bulan"]) if row["Bulan"] in BULAN_ORDER else 0)
+        with c2:
+            tp  = st.date_input("Tgl Pengaduan",  value=row["Tgl_Pengaduan"].date()    if pd.notna(row["Tgl_Pengaduan"])    else date.today())
+            ts  = st.date_input("Tgl Selesai",    value=row["Tgl_Penyelesaian"].date() if pd.notna(row["Tgl_Penyelesaian"]) else date.today())
+            st_ = st.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(row["Status"]) if row["Status"] in STATUS_LIST else 0)
+            rn  = st.text_area("Rincian Keluhan", value=str(row["Rincian"]) if pd.notna(row.get("Rincian")) and str(row.get("Rincian")) not in ("None","nan") else "", height=80)
+
+            if foto_val:
+                img_path = BASE_DIR.parent / "static" / foto_val
+                if img_path.exists():
+                    st.markdown("📷 **Foto Pengaduan**")
+                    st.image(str(img_path), caption=f"File: {foto_val}", use_container_width=True)
+                else:
+                    st.caption(f"📷 Foto Bukti: `{foto_val}` (file tidak ada di server)")
+            else:
+                st.caption("ℹ️ Tidak ada foto bukti yang diunggah dari portal.")
+
+        st.markdown("**Jenis Pengaduan:**")
+        j1,j2,j3,j4,j5 = st.columns(5)
+        kpd = j1.checkbox("Keb. Pipa Dinas", value=bool(row["Kebocoran_Pipa_Dinas"]))
+        ki  = j2.checkbox("Keb. Instalatur",  value=bool(row["Kebocoran_Instalatur"]))
+        sa  = j3.checkbox("Supply Air",        value=bool(row["Supply_Air"]))
+        pm  = j4.checkbox("Pmbyr Melonjak",    value=bool(row["Pembayaran_Melonjak"]))
+        wmr = j5.checkbox("WM Rusak",          value=bool(row["Water_Meter_Rusak"]))
+
+        b_sub, b_can = st.columns([2, 1])
+        with b_sub:
+            submitted = st.form_submit_button("💾 Simpan Perubahan", use_container_width=True, type="primary")
+        with b_can:
+            cancelled = st.form_submit_button("✖ Batal", use_container_width=True)
+
+        if cancelled:
+            st.rerun()
+
+        if submitted:
+            if not nm.strip():
+                st.error("Nama pelanggan wajib diisi!")
+            else:
+                data = {
+                    "cabang": cb, "bulan": bl, "bulan_num": BULAN_ORDER.index(bl)+1,
+                    "nama_pelanggan": nm.strip(), "no_telp": tl or None, "no_sambung": ns or None,
+                    "kebocoran_pipa_dinas": int(kpd), "kebocoran_instalatur": int(ki),
+                    "supply_air": int(sa), "pembayaran_melonjak": int(pm),
+                    "water_meter_rusak": int(wmr), "lainnya": 0,
+                    "alamat": al or None, "foto": foto_val, "rincian": rn or None, "status": st_,
+                    "tgl_pengaduan": tp, "tgl_penyelesaian": ts,
+                    "cluster": recluster({"kebocoran_pipa_dinas":kpd,"kebocoran_instalatur":ki,
+                                          "supply_air":sa,"pembayaran_melonjak":pm,"water_meter_rusak":wmr}),
+                    "durasi": max((ts - tp).days, 0),
+                }
+                _db.update_pengaduan(row_id, data)
+                _load_data_cached.clear()
+                st.success(f"✅ Data #{row_id} (**{nm}**) berhasil diperbarui!")
+                st.rerun()
+
+@st.dialog("🗑️ Konfirmasi Hapus Data")
+def dialog_delete_pengaduan(row_id: int):
+    df_curr = get_df()
+    match = df_curr[df_curr["No"].astype(str) == str(row_id)]
+    if match.empty:
+        _load_data_cached.clear()
+        df_curr = get_df()
+        match = df_curr[df_curr["No"].astype(str) == str(row_id)]
+    if match.empty:
+        st.error(f"Data dengan ID #{row_id} tidak ditemukan.")
+        return
+    row = match.iloc[0]
+
+    no_tlp_str = f" &nbsp;|&nbsp; 📞 <b>Telp:</b> {row['No_Telp']}" if pd.notna(row.get("No_Telp")) and str(row.get("No_Telp")) not in ("None","nan","") else ""
+    alamat_str = f"<br>📍 <b>Alamat:</b> {row['Alamat']}" if pd.notna(row.get("Alamat")) and str(row.get("Alamat")) not in ("None","nan") else ""
+
+    st.markdown(f"""
+    <div style="background:#1c0f14;border:1px solid rgba(239,68,68,.35);
+         border-radius:12px;padding:16px 20px;margin:10px 0;">
+      <div style="color:#f87171;font-weight:700;margin-bottom:8px;font-size:0.92rem;">
+        ⚠️ Yakin ingin menghapus data ini secara permanen?
+      </div>
+      <div style="color:#c8cfe8;font-size:.84rem;line-height:2.0;">
+        🆔 <b>ID:</b> #{row_id} &nbsp;|&nbsp;
+        👤 <b>Nama:</b> {row['Nama_Pelanggan']}{no_tlp_str}<br>
+        🏢 <b>Cabang:</b> {row['Cabang']} &nbsp;|&nbsp;
+        📅 <b>Bulan:</b> {row['Bulan']}<br>
+        🏷️ <b>Cluster:</b> {row['Cluster']}<br>
+        📋 <b>Status:</b> {row['Status']}{alamat_str}
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    c_del, c_can = st.columns([1.5, 1])
+    with c_del:
+        if st.button("🗑️ Hapus Permanen", type="primary", use_container_width=True, key=f"btn_confirm_del_{row_id}"):
+            _db.delete_pengaduan(row_id)
+            _load_data_cached.clear()
+            st.success(f"✅ Data #{row_id} berhasil dihapus!")
+            st.rerun()
+    with c_can:
+        if st.button("✖ Batal", use_container_width=True, key=f"btn_cancel_del_{row_id}"):
+            st.rerun()
+
 # SIDEBAR 
 with st.sidebar:
     st.markdown(f"""
@@ -447,21 +648,15 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sb-section">📊 Laporan</div>', unsafe_allow_html=True)
-    page = st.radio("nav_page",
-                    ["📈  Grafik & Peta", "📋  Tabel Data Interaktif"],
-                    label_visibility="collapsed", key="nav_page")
+    st.markdown('<div class="sb-section">📌 Menu Navigasi</div>', unsafe_allow_html=True)
+    nav_menu = st.radio("nav_menu",
+                        ["📈  Grafik & Peta", "📋  Tabel Data Interaktif", "➕  Tambah Data"],
+                        label_visibility="collapsed", key="nav_menu")
+    st.caption("💡 Edit dan Hapus data kini langsung di Tabel Data Interaktif.")
 
     st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="sb-section">⚙️ Kelola Data</div>', unsafe_allow_html=True)
-    crud = st.radio("nav_crud",
-                    ["➕  Tambah Data", "✏️  Edit Data", "🗑️  Hapus Data"],
-                    label_visibility="collapsed", key="nav_crud")
-
-    st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
-
-    is_laporan = st.session_state.active_section == "laporan"
+    is_laporan = nav_menu in ["📈  Grafik & Peta", "📋  Tabel Data Interaktif"]
     if is_laporan:
         st.markdown('<div class="sb-section">🔽 Filter Data</div>', unsafe_allow_html=True)
         bulan_sel   = st.multiselect("Bulan",   BULAN_ORDER, default=[])
@@ -491,25 +686,41 @@ with st.sidebar:
     else:
         bulan_sel, cluster_sel, cabang_sel = [], [], []
 
+    if st.button("🔄  Refresh Data Terbaru", use_container_width=True, key="btn_refresh_data"):
+        _load_data_cached.clear()
+        st.rerun()
+
     if st.button("🚪  Logout", use_container_width=True, key="btn_logout"):
         for _k in ["logged_in","user","pg","active_section","prev_page","prev_crud","login_error"]:
             st.session_state.pop(_k, None)
+        st.query_params.clear()
         st.rerun()
 
-# Routing 
-if page != st.session_state.prev_page:
-    st.session_state.active_section = "laporan"
-    st.session_state.prev_page      = page
-if crud != st.session_state.prev_crud:
-    st.session_state.active_section = "crud"
-    st.session_state.prev_crud      = crud
+# Routing
+if nav_menu == "➕  Tambah Data":
+    active = "crud"
+    crud   = "Tambah"
+    page   = ""
+elif nav_menu == "📋  Tabel Data Interaktif":
+    active = "laporan"
+    page   = "Tabel Data Interaktif"
+    crud   = ""
+else:
+    active = "laporan"
+    page   = "Grafik & Peta"
+    crud   = ""
 
-active = st.session_state.active_section
+st.session_state.active_section = active
 
 # Apply filters 
 df = get_df()
 if bulan_sel:   df = df[df["Bulan"].isin(bulan_sel)]
 if cluster_sel: df = df[df["Cluster"].isin(cluster_sel)]
+# Clamp years to 2026 for date columns
+for col in ["Tgl_Pengaduan", "Tgl_Penyelesaian"]:
+    if col in df.columns:
+        df[col] = pd.to_datetime(df[col], errors='coerce')
+        df.loc[df[col].dt.year > 2026, col] = df[col].apply(lambda d: d.replace(year=2026) if pd.notnull(d) else d)
 if is_pusat and cabang_sel:
     df = df[df["Cabang"].isin(cabang_sel)]
 
@@ -542,119 +753,47 @@ if not DB_OK:
 
 # KELOLA DATA
 if active == "crud":
-
-    if "Tambah" in crud:
-        st.markdown('<div class="sec-hdr">➕ Tambah Data Pengaduan</div>', unsafe_allow_html=True)
-        with st.form("f_tambah", clear_on_submit=True):
-            c1,c2 = st.columns(2)
-            with c1:
-                nama      = st.text_input("Nama Pelanggan *")
-                nosambung = st.text_input("No. Sambung")
-                alamat    = st.text_area("Alamat", height=70)
-                cab       = st.selectbox("Cabang *", CABANG_LIST) if is_pusat else user_cabang
-                if not is_pusat:
-                    st.text_input("Cabang", value=user_cabang, disabled=True)
-                bln = st.selectbox("Bulan *", BULAN_ORDER)
-            with c2:
-                tgl_p = st.date_input("Tgl Pengaduan *")
-                tgl_s = st.date_input("Tgl Penyelesaian")
-                sts   = st.selectbox("Status", STATUS_LIST)
-                rin   = st.text_area("Rincian", height=70)
-            st.markdown("**Jenis Pengaduan:**")
-            j1,j2,j3,j4,j5 = st.columns(5)
-            kpd=j1.checkbox("Keb. Pipa Dinas"); ki=j2.checkbox("Keb. Instalatur")
-            sa=j3.checkbox("Supply Air"); pm=j4.checkbox("Pmbyr Melonjak"); wmr=j5.checkbox("WM Rusak")
-            if st.form_submit_button("💾 Simpan ke Database", use_container_width=True):
-                if not nama:
-                    st.error("Nama wajib diisi!")
-                else:
-                    payload = {
-                        "cabang": cab, "bulan": bln, "bulan_num": BULAN_ORDER.index(bln)+1,
-                        "nama_pelanggan": nama, "no_sambung": nosambung or None, "blok": None,
-                        "kebocoran_pipa_dinas": int(kpd), "kebocoran_instalatur": int(ki),
-                        "supply_air": int(sa), "pembayaran_melonjak": int(pm),
-                        "water_meter_rusak": int(wmr), "lainnya": 0,
-                        "alamat": alamat or None, "rincian": rin or None, "status": sts,
-                        "tgl_pengaduan": tgl_p, "tgl_penyelesaian": tgl_s,
-                        "cluster": recluster({"kebocoran_pipa_dinas":kpd,"kebocoran_instalatur":ki,
-                                              "supply_air":sa,"pembayaran_melonjak":pm,"water_meter_rusak":wmr}),
-                        "durasi": max((tgl_s - tgl_p).days, 0),
-                        "created_by": user["username"],
-                    }
-                    new_id = _db.insert_pengaduan(payload)
-                    st.success(f"✅ Data **{nama}** tersimpan! (ID: {new_id})")
-
-    elif "Edit" in crud:
-        st.markdown('<div class="sec-hdr">✏️ Edit Data Pengaduan</div>', unsafe_allow_html=True)
-        df_e = get_df()
-        if df_e.empty:
-            st.info("Belum ada data.")
-        else:
-            df_e["Lbl"] = df_e["No"].astype(str)+" | "+df_e["Nama_Pelanggan"].astype(str)+" | "+df_e["Cabang"].astype(str)
-            sel   = st.selectbox("Pilih Data", df_e["Lbl"].tolist())
-            row   = df_e[df_e["Lbl"]==sel].iloc[0]
-            rid   = int(row["No"])
-            with st.form("f_edit"):
-                c1,c2 = st.columns(2)
-                with c1:
-                    nm = st.text_input("Nama", value=str(row["Nama_Pelanggan"]))
-                    al = st.text_area("Alamat", value=str(row["Alamat"]) if pd.notna(row.get("Alamat")) else "", height=70)
-                    cb = st.selectbox("Cabang", CABANG_LIST, index=CABANG_LIST.index(row["Cabang"]) if row["Cabang"] in CABANG_LIST else 0) if is_pusat else user_cabang
-                    if not is_pusat: st.text_input("Cabang", value=user_cabang, disabled=True)
-                    bl = st.selectbox("Bulan", BULAN_ORDER, index=BULAN_ORDER.index(row["Bulan"]) if row["Bulan"] in BULAN_ORDER else 0)
-                with c2:
-                    tp  = st.date_input("Tgl Pengaduan",  value=row["Tgl_Pengaduan"].date()    if pd.notna(row["Tgl_Pengaduan"])    else date.today())
-                    ts  = st.date_input("Tgl Selesai",    value=row["Tgl_Penyelesaian"].date() if pd.notna(row["Tgl_Penyelesaian"]) else date.today())
-                    st_ = st.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(row["Status"]) if row["Status"] in STATUS_LIST else 0)
-                    rn  = st.text_area("Rincian", value=str(row["Rincian"]) if pd.notna(row.get("Rincian")) else "", height=70)
-                j1,j2,j3,j4,j5 = st.columns(5)
-                kpd=j1.checkbox("Keb. Pipa Dinas", value=bool(row["Kebocoran_Pipa_Dinas"]))
-                ki =j2.checkbox("Keb. Instalatur",  value=bool(row["Kebocoran_Instalatur"]))
-                sa =j3.checkbox("Supply Air",        value=bool(row["Supply_Air"]))
-                pm =j4.checkbox("Pmbyr Melonjak",    value=bool(row["Pembayaran_Melonjak"]))
-                wmr=j5.checkbox("WM Rusak",          value=bool(row["Water_Meter_Rusak"]))
-                if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
-                    data = {
-                        "cabang": cb, "bulan": bl, "bulan_num": BULAN_ORDER.index(bl)+1,
-                        "nama_pelanggan": nm, "no_sambung": None,
-                        "kebocoran_pipa_dinas": int(kpd), "kebocoran_instalatur": int(ki),
-                        "supply_air": int(sa), "pembayaran_melonjak": int(pm),
-                        "water_meter_rusak": int(wmr), "lainnya": 0,
-                        "alamat": al or None, "rincian": rn or None, "status": st_,
-                        "tgl_pengaduan": tp, "tgl_penyelesaian": ts,
-                        "cluster": recluster({"kebocoran_pipa_dinas":kpd,"kebocoran_instalatur":ki,
-                                              "supply_air":sa,"pembayaran_melonjak":pm,"water_meter_rusak":wmr}),
-                        "durasi": max((ts - tp).days, 0),
-                    }
-                    _db.update_pengaduan(rid, data)
-                    st.success(f"✅ Data **{nm}** diperbarui di database!")
-
-    elif "Hapus" in crud:
-        st.markdown('<div class="sec-hdr">🗑️ Hapus Data Pengaduan</div>', unsafe_allow_html=True)
-        df_d = get_df()
-        if df_d.empty:
-            st.info("Belum ada data.")
-        else:
-            df_d["Lbl"] = df_d["No"].astype(str)+" | "+df_d["Nama_Pelanggan"].astype(str)+" | "+df_d["Cabang"].astype(str)+" | "+df_d["Bulan"].astype(str)
-            sel   = st.selectbox("Pilih Data yang Akan Dihapus", df_d["Lbl"].tolist())
-            row   = df_d[df_d["Lbl"]==sel].iloc[0]
-            rid   = int(row["No"])
-            st.markdown(f"""
-            <div style="background:#12172e;border:1px solid rgba(239,68,68,.3);
-                 border-radius:12px;padding:16px 20px;margin:10px 0;">
-              <div style="color:#f87171;font-weight:700;margin-bottom:8px;">⚠️ Data yang akan dihapus:</div>
-              <div style="color:#c8cfe8;font-size:.84rem;line-height:2.2;">
-                👤 <b>Nama:</b> {row['Nama_Pelanggan']} &nbsp;|&nbsp;
-                🏢 <b>Cabang:</b> {row['Cabang']} &nbsp;|&nbsp;
-                📅 <b>Bulan:</b> {row['Bulan']}<br>
-                🏷️ <b>Cluster:</b> {row['Cluster']} &nbsp;|&nbsp;
-                📋 <b>Status:</b> {row['Status']}
-              </div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("🗑️ Hapus Permanen dari Database", type="primary"):
-                _db.delete_pengaduan(rid)
-                st.success("✅ Data dihapus dari database!")
-                st.rerun()
+    st.markdown('<div class="sec-hdr">➕ Tambah Data Pengaduan</div>', unsafe_allow_html=True)
+    with st.form("f_tambah", clear_on_submit=True):
+        c1,c2 = st.columns(2)
+        with c1:
+            nama      = st.text_input("Nama Pelanggan *")
+            notelp    = st.text_input("No. Telepon / HP")
+            nosambung = st.text_input("No. Sambung")
+            alamat    = st.text_area("Alamat", height=70)
+            cab       = st.selectbox("Cabang *", CABANG_LIST) if is_pusat else user_cabang
+            if not is_pusat:
+                st.text_input("Cabang", value=user_cabang, disabled=True)
+            bln = st.selectbox("Bulan *", BULAN_ORDER)
+        with c2:
+            tgl_p = st.date_input("Tgl Pengaduan *")
+            tgl_s = st.date_input("Tgl Penyelesaian")
+            sts   = st.selectbox("Status", STATUS_LIST)
+            rin   = st.text_area("Rincian", height=70)
+        st.markdown("**Jenis Pengaduan:**")
+        j1,j2,j3,j4,j5 = st.columns(5)
+        kpd=j1.checkbox("Keb. Pipa Dinas"); ki=j2.checkbox("Keb. Instalatur")
+        sa=j3.checkbox("Supply Air"); pm=j4.checkbox("Pmbyr Melonjak"); wmr=j5.checkbox("WM Rusak")
+        if st.form_submit_button("💾 Simpan ke Database", use_container_width=True):
+            if not nama.strip():
+                st.error("Nama wajib diisi!")
+            else:
+                payload = {
+                    "cabang": cab, "bulan": bln, "bulan_num": BULAN_ORDER.index(bln)+1,
+                    "nama_pelanggan": nama.strip(), "no_telp": notelp or None, "no_sambung": nosambung or None, "blok": None,
+                    "kebocoran_pipa_dinas": int(kpd), "kebocoran_instalatur": int(ki),
+                    "supply_air": int(sa), "pembayaran_melonjak": int(pm),
+                    "water_meter_rusak": int(wmr), "lainnya": 0,
+                    "alamat": alamat or None, "rincian": rin or None, "status": sts,
+                    "tgl_pengaduan": tgl_p, "tgl_penyelesaian": tgl_s,
+                    "cluster": recluster({"kebocoran_pipa_dinas":kpd,"kebocoran_instalatur":ki,
+                                          "supply_air":sa,"pembayaran_melonjak":pm,"water_meter_rusak":wmr}),
+                    "durasi": max((tgl_s - tgl_p).days, 0),
+                    "created_by": user["username"],
+                }
+                new_id = _db.insert_pengaduan(payload)
+                _load_data_cached.clear()
+                st.success(f"✅ Data **{nama}** tersimpan! (ID: {new_id})")
 
 # GRAFIK & PETA
 elif active == "laporan" and "Grafik" in page:
@@ -695,21 +834,28 @@ elif active == "laporan" and "Grafik" in page:
                           yaxis=dict(gridcolor="rgba(255,255,255,0.05)",tickfont=dict(color="#7b8ab8")),font=dict(color="#c8cfe8"))
         st.plotly_chart(fig,use_container_width=True)
 
-    if is_pusat and "lat" in df.columns:
-        st.markdown('<div class="sec-hdr">Geo Map — Sebaran per Wilayah</div>',unsafe_allow_html=True)
-        mt=df.groupby(["Cabang","Kec","lat","lon"]).size().reset_index(name="Total")
-        dom=(df.groupby(["Cabang","Cluster"]).size().reset_index(name="n")
-             .sort_values("n",ascending=False).drop_duplicates("Cabang")[["Cabang","Cluster"]])
-        md=mt.merge(dom,on="Cabang")
-        md["hover"]=md.apply(lambda r:f"<b>{r['Kec']}</b><br>Total: {r['Total']}<br>Dominan: {r['Cluster']}",axis=1)
-        fig=px.scatter_mapbox(md,lat="lat",lon="lon",size="Total",color="Cluster",
-                              color_discrete_map=COLORS,hover_name="Kec",custom_data=["hover"],
-                              size_max=50,zoom=8.5,center={"lat":-7.05,"lon":106.75},
-                              mapbox_style="carto-darkmatter",height=420)
-        fig.update_traces(hovertemplate="%{customdata[0]}<extra></extra>",marker=dict(opacity=0.85,sizemin=8))
-        fig.update_layout(margin=dict(t=0,b=0,l=0,r=0),paper_bgcolor="rgba(0,0,0,0)",
-                          legend=dict(orientation="h",y=-0.04,bgcolor="rgba(20,26,50,.85)",borderwidth=1,font=dict(color="white")))
-        st.plotly_chart(fig,use_container_width=True)
+    if "lat" in df.columns and not df.empty:
+        st.markdown('<div class="sec-hdr">Geo Map — Sebaran per Wilayah</div>', unsafe_allow_html=True)
+        mt = df.dropna(subset=["lat", "lon"]).groupby(["Cabang", "Kec", "lat", "lon"]).size().reset_index(name="Total")
+        if not mt.empty:
+            dom = (df.groupby(["Cabang", "Cluster"]).size().reset_index(name="n")
+                   .sort_values("n", ascending=False).drop_duplicates("Cabang")[["Cabang", "Cluster"]])
+            md = mt.merge(dom, on="Cabang")
+            md["hover"] = md.apply(lambda r: f"<b>{r['Kec']}</b><br>Total: {r['Total']}<br>Dominan: {r['Cluster']}", axis=1)
+            fig = px.scatter_mapbox(
+                md, lat="lat", lon="lon", size="Total", color="Cluster",
+                color_discrete_map=COLORS, hover_name="Kec", custom_data=["hover"],
+                size_max=50, zoom=8.5, center={"lat": -7.05, "lon": 106.75},
+                mapbox_style="open-street-map", height=420
+            )
+            fig.update_traces(hovertemplate="%{customdata[0]}<extra></extra>", marker=dict(opacity=0.85, sizemin=8))
+            fig.update_layout(
+                margin=dict(t=0, b=0, l=0, r=0), paper_bgcolor="rgba(0,0,0,0)",
+                legend=dict(orientation="h", y=-0.04, bgcolor="rgba(20,26,50,.85)", borderwidth=1, font=dict(color="white"))
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("ℹ️ Data lokasi (koordinat) tidak tersedia untuk filter saat ini.")
 
     ce_,cf_ = st.columns(2)
     with ce_:
@@ -726,22 +872,43 @@ elif active == "laporan" and "Grafik" in page:
     with cf_:
         st.markdown('<div class="sec-hdr">Distribusi Durasi (Hari)</div>',unsafe_allow_html=True)
         if "Durasi" in df.columns:
-            ddf=df[df["Durasi"].between(0,60)].copy()
+            # Duplicate histogram block removed
+            ddf = df.dropna(subset=["Durasi"]).copy()
             if not ddf.empty:
-                fig=px.histogram(ddf,x="Durasi",color="Cluster",color_discrete_map=COLORS,nbins=30,barmode="overlay",opacity=0.75)
-                fig.update_layout(height=240,margin=dict(t=10,b=20,l=0,r=0),xaxis_title="Hari",yaxis_title="",
-                                  legend=dict(orientation="h",y=-0.5,font=dict(size=10,color="#c8cfe8")),
-                                  paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
-                                  xaxis=dict(gridcolor="rgba(255,255,255,0.05)",tickfont=dict(color="#7b8ab8")),
-                                  yaxis=dict(gridcolor="rgba(255,255,255,0.05)",tickfont=dict(color="#7b8ab8")))
-                st.plotly_chart(fig,use_container_width=True)
+                min_dur = ddf["Durasi"].min()
+                max_dur = ddf["Durasi"].max()
+                fig = px.histogram(
+                    ddf,
+                    x="Durasi",
+                    color="Cluster",
+                    color_discrete_map=COLORS,
+                    nbins=30,
+                    barmode="overlay",
+                    opacity=0.75,
+                )
+                fig.update_layout(
+                    height=240,
+                    margin=dict(t=10, b=20, l=0, r=0),
+                    xaxis_title="Hari",
+                    yaxis_title="",
+                    legend=dict(orientation="h", y=-0.5, font=dict(size=10, color="#c8cfe8")),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    xaxis=dict(range=[min_dur, max_dur], gridcolor="rgba(255,255,255,0.05)", tickfont=dict(color="#7b8ab8")),
+                    yaxis=dict(gridcolor="rgba(255,255,255,0.05)", tickfont=dict(color="#7b8ab8")),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Tidak ada data Durasi untuk ditampilkan.")
+        else:
+            st.info("Kolom 'Durasi' tidak tersedia.")
 
 # TABEL DATA 
 elif active == "laporan" and "Tabel" in page:
     st.markdown('<div class="sec-hdr">📋 Tabel Data Pengaduan — Interaktif</div>',unsafe_allow_html=True)
 
     sc1,sc2,sc3,sc4 = st.columns([3,1.5,1.5,1.5])
-    with sc1: q       = st.text_input("🔍 Cari nama / rincian / cabang...", key="tbl_q")
+    with sc1: q       = st.text_input("🔍 Cari nama / no sambung / rincian / cabang...", key="tbl_q")
     with sc2: fcl     = st.selectbox("Cluster", ["Semua"]+list(COLORS.keys()), key="tbl_cl")
     with sc3: fst     = st.selectbox("Status",  ["Semua"]+STATUS_LIST, key="tbl_st")
     with sc4: sort_by = st.selectbox("Urutkan", ["Tgl_Pengaduan","Nama_Pelanggan","Kec","Durasi","Cluster"], key="tbl_sort")
@@ -750,6 +917,7 @@ elif active == "laporan" and "Tabel" in page:
     dt = df.copy()
     if q:
         mask = (dt["Nama_Pelanggan"].astype(str).str.contains(q,case=False,na=False)|
+                dt["No_Sambung"].astype(str).str.contains(q,case=False,na=False)|
                 dt["Rincian"].astype(str).str.contains(q,case=False,na=False)|
                 dt["Cabang"].astype(str).str.contains(q,case=False,na=False)|
                 dt["Kec"].astype(str).str.contains(q,case=False,na=False))
@@ -771,55 +939,173 @@ elif active == "laporan" and "Tabel" in page:
         tc = dt["Cluster"].value_counts().index[0] if n_total else "—"
         st.metric("🏷️ Dominan", tc)
 
-    PAGE=50; n_pages=max(1,(n_total+PAGE-1)//PAGE)
-    if st.session_state.pg>=n_pages: st.session_state.pg=0
+    # Filter per Cabang — hanya untuk akses Pusat
+    if is_pusat:
+        cb_opts = ["Semua Cabang"] + sorted(dt["Cabang"].dropna().unique().tolist())
+        # Restore filter dari session state
+        if "tbl_cabang_filter" not in st.session_state:
+            st.session_state["tbl_cabang_filter"] = "Semua Cabang"
+        # Pastikan nilai yang tersimpan masih valid
+        if st.session_state["tbl_cabang_filter"] not in cb_opts:
+            st.session_state["tbl_cabang_filter"] = "Semua Cabang"
 
-    p1,p2,p3 = st.columns([1,2,1])
-    with p1:
-        if st.button("⬅ Prev",key="btn_prev") and st.session_state.pg>0:
-            st.session_state.pg-=1; st.rerun()
-    with p2:
-        st.markdown(f"<div style='text-align:center;color:#7b8ab8;padding:6px 0;font-size:.85rem;'>"
-                    f"Hal <b style='color:white'>{st.session_state.pg+1}</b>/<b style='color:white'>{n_pages}</b>"
-                    f" &nbsp;|&nbsp; {n_total:,} data</div>",unsafe_allow_html=True)
-    with p3:
-        if st.button("Next ➡",key="btn_next") and st.session_state.pg<n_pages-1:
-            st.session_state.pg+=1; st.rerun()
+        fc_cols = st.columns([1, 5])
+        with fc_cols[0]:
+            st.markdown('<div style="padding-top:8px;color:#7b8ab8;font-size:.78rem;font-weight:600;">🏢 Cabang:</div>', unsafe_allow_html=True)
+        with fc_cols[1]:
+            cb_sel = st.selectbox(
+                "Pilih Cabang",
+                cb_opts,
+                index=cb_opts.index(st.session_state["tbl_cabang_filter"]),
+                label_visibility="collapsed",
+                key="tbl_cabang_sel",
+            )
+            st.session_state["tbl_cabang_filter"] = cb_sel
 
-    start=st.session_state.pg*PAGE; page_df=dt.iloc[start:start+PAGE]
-    rows=""
-    for _,r in page_df.iterrows():
-        tp=r["Tgl_Pengaduan"].strftime("%d/%m/%Y") if pd.notna(r["Tgl_Pengaduan"]) else "—"
-        ts=r["Tgl_Penyelesaian"].strftime("%d/%m/%Y") if pd.notna(r["Tgl_Penyelesaian"]) else "—"
-        dur=f"{int(r['Durasi'])}h" if "Durasi" in r.index and pd.notna(r["Durasi"]) else "—"
-        nm=str(r["Nama_Pelanggan"]); nm=nm[:28]+"…" if len(nm)>28 else nm
-        rin=str(r["Rincian"]) if pd.notna(r.get("Rincian","")) else "—"; rin=rin[:42]+"…" if len(rin)>42 else rin
-        kec=str(r.get("Kec","—"))
-        rows+=(f'<tr><td style="color:#4a5578;font-size:.72rem;">{r["No"]}</td>'
-               f'<td><b style="color:white">{nm}</b></td><td style="color:#818cf8">{kec}</td>'
-               f'<td style="color:#5a6490;font-size:.78rem;">{r["Bulan"]}</td>'
-               f'<td>{cbadge(r["Cluster"])}</td><td style="color:#9aa3c8;font-size:.78rem;">{rin}</td>'
-               f'<td>{sbadge(r["Status"])}</td><td style="color:#5a6490;font-size:.78rem;">{tp}</td>'
-               f'<td style="color:#5a6490;font-size:.78rem;">{ts}</td>'
-               f'<td style="color:#f59e0b;font-weight:700;">{dur}</td></tr>')
+        # Terapkan filter cabang ke dt
+        if cb_sel != "Semua Cabang":
+            dt = dt[dt["Cabang"] == cb_sel]
+
+            # Mini summary card untuk cabang terpilih
+            n_cb   = len(dt)
+            sel_cb = dt["Status"].str.contains("SELESAI", na=False).sum()
+            pro_cb = dt["Status"].str.contains("PROSES", na=False).sum()
+            bel_cb = dt["Status"].str.contains("BELUM", na=False).sum()
+            pct_cb = sel_cb / n_cb * 100 if n_cb else 0
+            avg_cb = dt["Durasi"].dropna().mean() if "Durasi" in dt.columns else 0
+            dom_cb = dt["Cluster"].value_counts().index[0] if n_cb else "—"
+            pct_color_cb = "#4ade80" if pct_cb >= 70 else "#fb923c" if pct_cb >= 40 else "#f87171"
+
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#12172e,#161e3a);border:1px solid rgba(99,102,241,0.3);
+                 border-radius:12px;padding:12px 18px;margin:8px 0 4px;
+                 display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:140px;">
+                <div style="color:#7b8ab8;font-size:.65rem;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Cabang Dipilih</div>
+                <div style="color:white;font-weight:700;font-size:.95rem;font-family:'Sora',sans-serif;">🏢 {cb_sel}</div>
+              </div>
+              <div style="text-align:center;min-width:70px;">
+                <div style="color:#7b8ab8;font-size:.62rem;text-transform:uppercase;">Total</div>
+                <div style="color:white;font-weight:800;font-size:1.3rem;">{n_cb:,}</div>
+              </div>
+              <div style="text-align:center;min-width:70px;">
+                <div style="color:#7b8ab8;font-size:.62rem;text-transform:uppercase;">Selesai</div>
+                <div style="color:#4ade80;font-weight:700;font-size:1.1rem;">{sel_cb}</div>
+              </div>
+              <div style="text-align:center;min-width:70px;">
+                <div style="color:#7b8ab8;font-size:.62rem;text-transform:uppercase;">Proses</div>
+                <div style="color:#fb923c;font-weight:700;font-size:1.1rem;">{pro_cb}</div>
+              </div>
+              <div style="text-align:center;min-width:70px;">
+                <div style="color:#7b8ab8;font-size:.62rem;text-transform:uppercase;">Belum</div>
+                <div style="color:#a5b4fc;font-weight:700;font-size:1.1rem;">{bel_cb}</div>
+              </div>
+              <div style="text-align:center;min-width:80px;">
+                <div style="color:#7b8ab8;font-size:.62rem;text-transform:uppercase;">% Selesai</div>
+                <div style="color:{pct_color_cb};font-weight:800;font-size:1.1rem;">{pct_cb:.1f}%</div>
+              </div>
+              <div style="text-align:center;min-width:80px;">
+                <div style="color:#7b8ab8;font-size:.62rem;text-transform:uppercase;">Avg Durasi</div>
+                <div style="color:#f59e0b;font-weight:700;font-size:1rem;">{avg_cb:.1f} hr</div>
+              </div>
+              <div style="text-align:center;min-width:100px;">
+                <div style="color:#7b8ab8;font-size:.62rem;text-transform:uppercase;">Dominan</div>
+                <div>{cbadge(dom_cb)}</div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Recalculate n_total setelah filter cabang
+        n_total = len(dt)
+
+    # Pagination controls & Page size
+    p_ctrl1, p_ctrl2, p_ctrl3, p_ctrl4 = st.columns([1, 2, 1, 1], vertical_alignment="center")
+    PAGE = p_ctrl4.selectbox("Tampilkan", [15, 25, 50, 100], index=0, key="tbl_page_size")
+    n_pages = max(1, (n_total + PAGE - 1) // PAGE)
+    if st.session_state.pg >= n_pages:
+        st.session_state.pg = 0
+
+    with p_ctrl1:
+        if st.button("⬅ Prev", key="btn_prev", use_container_width=True) and st.session_state.pg > 0:
+            st.session_state.pg -= 1
+            st.rerun()
+    with p_ctrl2:
+        st.markdown(
+            f"<div style='text-align:center;color:#7b8ab8;font-size:.85rem;'>"
+            f"Hal <b style='color:white'>{st.session_state.pg+1}</b> / <b style='color:white'>{n_pages}</b>"
+            f" &nbsp;|&nbsp; {n_total:,} data total</div>",
+            unsafe_allow_html=True
+        )
+    with p_ctrl3:
+        if st.button("Next ➡", key="btn_next", use_container_width=True) and st.session_state.pg < n_pages - 1:
+            st.session_state.pg += 1
+            st.rerun()
+
+    start = st.session_state.pg * PAGE
+    page_df = dt.iloc[start:start + PAGE]
+
+    dth_title = f"Data Pengaduan 2025 &mdash; {scope_label}"
+    dth_subtitle = f"{start+1}&ndash;{min(start+PAGE, n_total)} dari {format(n_total, ',')}"
 
     st.markdown(f"""
-<div class="dtw">
-  <div class="dth">
-    <span class="dth-title">📋 Data Pengaduan 2025 — {scope_label}</span>
-    <span style="color:#4a5578;font-size:.75rem;">{start+1}–{min(start+PAGE,n_total)} dari {n_total:,}</span>
-  </div>
-  <div style="overflow-x:auto;">
-    <table class="dtable">
-      <thead><tr>
-        <th>#</th><th>Nama Pelanggan</th><th>Kecamatan</th><th>Bulan</th>
-        <th>Cluster</th><th>Rincian</th><th>Status</th>
-        <th>Tgl Pengaduan</th><th>Tgl Selesai</th><th>Durasi</th>
-      </tr></thead>
-      <tbody>{rows}</tbody>
-    </table>
-  </div>
-</div>""",unsafe_allow_html=True)
+    <div class="dtw" style="margin-bottom:8px;">
+      <div class="dth">
+        <span class="dth-title">📋 {dth_title}</span>
+        <span style="color:#7b8ab8;font-size:.75rem;">{dth_subtitle}</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if page_df.empty:
+        st.info("ℹ️ Tidak ada data yang sesuai dengan filter pencarian.")
+    else:
+        col_w = [0.6, 2.0, 1.2, 0.9, 1.1, 2.2, 1.1, 1.0, 0.7, 1.3]
+
+        # Table Header
+        th_cols = st.columns(col_w, vertical_alignment="center")
+        th_cols[0].markdown('<div class="th-cell">#</div>', unsafe_allow_html=True)
+        th_cols[1].markdown('<div class="th-cell">NAMA PELANGGAN</div>', unsafe_allow_html=True)
+        th_cols[2].markdown('<div class="th-cell">CABANG / KEC</div>', unsafe_allow_html=True)
+        th_cols[3].markdown('<div class="th-cell">BULAN</div>', unsafe_allow_html=True)
+        th_cols[4].markdown('<div class="th-cell">CLUSTER</div>', unsafe_allow_html=True)
+        th_cols[5].markdown('<div class="th-cell">RINCIAN</div>', unsafe_allow_html=True)
+        th_cols[6].markdown('<div class="th-cell">STATUS</div>', unsafe_allow_html=True)
+        th_cols[7].markdown('<div class="th-cell">TGL</div>', unsafe_allow_html=True)
+        th_cols[8].markdown('<div class="th-cell">DURASI</div>', unsafe_allow_html=True)
+        th_cols[9].markdown('<div class="th-cell" style="text-align:center;">AKSI</div>', unsafe_allow_html=True)
+
+        st.markdown('<div style="height:1px;background:rgba(99,102,241,0.25);margin:4px 0 8px;"></div>', unsafe_allow_html=True)
+
+        # Table Rows
+        for _, r in page_df.iterrows():
+            rid = int(r["No"])
+            tp  = r["Tgl_Pengaduan"].strftime("%d/%m/%Y") if pd.notna(r["Tgl_Pengaduan"]) else "—"
+            dur = f"{int(r['Durasi'])}h" if "Durasi" in r.index and pd.notna(r["Durasi"]) else "—"
+            nm  = str(r["Nama_Pelanggan"])
+            nm_disp = nm[:25] + "…" if len(nm) > 25 else nm
+            tl_disp = f"<div class='td-telp'>📞 {r['No_Telp']}</div>" if pd.notna(r.get("No_Telp")) and str(r.get("No_Telp")) not in ("None","nan","") else ""
+            rin = str(r["Rincian"]) if pd.notna(r.get("Rincian","")) and str(r.get("Rincian")) not in ("None","nan") else "—"
+            rin_disp = rin[:36] + "…" if len(rin) > 36 else rin
+            kec = str(r.get("Kec", r.get("Cabang", "—")))
+
+            r_cols = st.columns(col_w, vertical_alignment="center")
+            r_cols[0].markdown(f'<div class="td-no">#{rid}</div>', unsafe_allow_html=True)
+            r_cols[1].markdown(f'<div class="td-nama" title="{nm}">{nm_disp}{tl_disp}</div>', unsafe_allow_html=True)
+            r_cols[2].markdown(f'<div class="td-kec">{kec}</div>', unsafe_allow_html=True)
+            r_cols[3].markdown(f'<div class="td-bln">{r["Bulan"]}</div>', unsafe_allow_html=True)
+            r_cols[4].markdown(cbadge(r["Cluster"]), unsafe_allow_html=True)
+            r_cols[5].markdown(f'<div class="td-rin" title="{rin}">{rin_disp}</div>', unsafe_allow_html=True)
+            r_cols[6].markdown(sbadge(r["Status"]), unsafe_allow_html=True)
+            r_cols[7].markdown(f'<div class="td-tgl">{tp}</div>', unsafe_allow_html=True)
+            r_cols[8].markdown(f'<div class="td-dur">{dur}</div>', unsafe_allow_html=True)
+
+            b_edit, b_del = r_cols[9].columns(2)
+            if b_edit.button("✏️", key=f"tbl_btn_edit_{rid}", help=f"Edit pengaduan #{rid} ({nm})"):
+                dialog_edit_pengaduan(rid)
+            if b_del.button("🗑️", key=f"tbl_btn_del_{rid}", help=f"Hapus pengaduan #{rid} ({nm})"):
+                dialog_delete_pengaduan(rid)
+
+            st.markdown('<div style="height:1px;background:rgba(255,255,255,0.04);margin:2px 0;"></div>', unsafe_allow_html=True)
 
     st.markdown("<br>",unsafe_allow_html=True)
     exp_cols=["No","Cabang","Kec","Bulan","Nama_Pelanggan","No_Sambung","Rincian","Cluster","Status","Tgl_Pengaduan","Tgl_Penyelesaian","Durasi"]

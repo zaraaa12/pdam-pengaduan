@@ -1,15 +1,3 @@
-"""
-db.py — Koneksi MySQL untuk Dashboard Pengaduan PDAM
-Requires: pip install mysql-connector-python bcrypt openpyxl pandas
-
-PERBAIKAN (Juni 2026):
-_get_db_config() lama bisa diam-diam fallback ke localhost ketika
-dipanggil dari Flask (portal.py) karena import streamlit + akses
-st.secrets melempar error di tempat yang tidak terduga.
-Versi ini TIDAK bergantung pada streamlit sama sekali untuk baca config;
-streamlit secrets hanya dibaca lewat fungsi terpisah yang dipanggil
-secara eksplisit dari app.py (dashboard), bukan otomatis saat import.
-"""
 import os
 import bcrypt
 import mysql.connector
@@ -19,13 +7,18 @@ from pathlib import Path
 from typing import Optional
 from contextlib import contextmanager
 
+# Load .env untuk development lokal
+try:
+    from dotenv import load_dotenv
+    from pathlib import Path
+    # Cari .env di dua level ke atas (DASHBOARD\.env)
+    _env_path = Path(__file__).parent.parent / ".env"
+    load_dotenv(dotenv_path=_env_path)
+except ImportError:
+    pass
 
 def _read_streamlit_secrets() -> dict:
-    """
-    Coba baca st.secrets HANYA jika benar-benar berjalan di dalam
-    Streamlit runtime. Return {} jika tidak relevan/gagal — TIDAK PERNAH
-    melempar exception ke pemanggil.
-    """
+    
     try:
         import streamlit as st
         # st.secrets melempar error jika file secrets.toml tidak ada
@@ -40,16 +33,7 @@ def _read_streamlit_secrets() -> dict:
         # dipanggil dari luar streamlit runtime, dll.
         return {}
 
-
 def _get_db_config() -> dict:
-    """
-    Urutan prioritas:
-    1. Streamlit secrets (HANYA jika tersedia & valid) — untuk dashboard
-       saat dideploy di Streamlit Cloud.
-    2. Environment variable MYSQL_HOST / MYSQL_PORT / dst — untuk Flask
-       portal (lokal pakai .env, atau Railway pakai Variables).
-    3. Fallback localhost — untuk development tanpa konfigurasi apapun.
-    """
     st_secrets = _read_streamlit_secrets()
 
     def pick(key_secrets: str, env_key: str, default):
@@ -170,6 +154,7 @@ def init_db():
           bulan                 VARCHAR(20)  NOT NULL,
           bulan_num             TINYINT      NOT NULL DEFAULT 0,
           nama_pelanggan        VARCHAR(150) NOT NULL,
+          no_telp               VARCHAR(30)  NULL,
           no_sambung            VARCHAR(50)  NULL,
           blok                  VARCHAR(30)  NULL,
           kebocoran_pipa_dinas  TINYINT(1)   NOT NULL DEFAULT 0,
@@ -179,6 +164,7 @@ def init_db():
           water_meter_rusak     TINYINT(1)   NOT NULL DEFAULT 0,
           lainnya               TINYINT(1)   NOT NULL DEFAULT 0,
           alamat                TEXT         NULL,
+          foto                  VARCHAR(255) NULL,
           rincian               TEXT         NULL,
           status                VARCHAR(40)  NOT NULL DEFAULT 'BELUM DILAKSANAKAN',
           tgl_pengaduan         DATE         NULL,
@@ -190,6 +176,16 @@ def init_db():
           updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
+
+        # Migration untuk kolom baru (jika tabel pengaduan sudah dibuat sebelumnya)
+        for col_sql in [
+            "ALTER TABLE pengaduan ADD COLUMN no_telp VARCHAR(30) NULL AFTER nama_pelanggan",
+            "ALTER TABLE pengaduan ADD COLUMN foto VARCHAR(255) NULL AFTER alamat",
+        ]:
+            try:
+                cur.execute(col_sql)
+            except Exception:
+                pass
 
         # Index
         for idx in [
@@ -408,6 +404,19 @@ def login(username: str, password: str) -> Optional[dict]:
     return row
 
 
+def get_user_by_username(username: str) -> Optional[dict]:
+    """Ambil data user berdasarkan username (untuk auto-restore session saat refresh)."""
+    with get_conn() as conn:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT id, username, nama_lengkap, role, cabang, aktif FROM users WHERE username=%s AND aktif=1 LIMIT 1",
+            (username.strip(),)
+        )
+        row = cur.fetchone()
+        cur.close()
+    return row
+
+
 def change_password(user_id: int, old_pw: str, new_pw: str) -> bool:
     """Ganti password. Return True jika berhasil."""
     with get_conn() as conn:
@@ -444,10 +453,10 @@ def fetch_pengaduan(cabang_filter: Optional[str] = None) -> pd.DataFrame:
 
     if df.empty:
         return pd.DataFrame(columns=[
-            "No","Cabang","Bulan","Bulan_Num","Nama_Pelanggan","No_Sambung","Blok",
+            "No","Cabang","Bulan","Bulan_Num","Nama_Pelanggan","No_Telp","No_Sambung","Blok",
             "Kebocoran_Pipa_Dinas","Kebocoran_Instalatur","Supply_Air",
             "Pembayaran_Melonjak","Water_Meter_Rusak","Lainnya",
-            "Alamat","Rincian","Status","Tgl_Pengaduan","Tgl_Penyelesaian",
+            "Alamat","Foto","Rincian","Status","Tgl_Pengaduan","Tgl_Penyelesaian",
             "Cluster","Durasi","Created_By","lat","lon","Kec",
         ])
 
@@ -455,12 +464,12 @@ def fetch_pengaduan(cabang_filter: Optional[str] = None) -> pd.DataFrame:
     df = df.rename(columns={
         "id": "No", "cabang": "Cabang", "bulan": "Bulan",
         "bulan_num": "Bulan_Num", "nama_pelanggan": "Nama_Pelanggan",
-        "no_sambung": "No_Sambung", "blok": "Blok",
+        "no_telp": "No_Telp", "no_sambung": "No_Sambung", "blok": "Blok",
         "kebocoran_pipa_dinas": "Kebocoran_Pipa_Dinas",
         "kebocoran_instalatur": "Kebocoran_Instalatur",
         "supply_air": "Supply_Air", "pembayaran_melonjak": "Pembayaran_Melonjak",
         "water_meter_rusak": "Water_Meter_Rusak", "lainnya": "Lainnya",
-        "alamat": "Alamat", "rincian": "Rincian", "status": "Status",
+        "alamat": "Alamat", "foto": "Foto", "rincian": "Rincian", "status": "Status",
         "tgl_pengaduan": "Tgl_Pengaduan", "tgl_penyelesaian": "Tgl_Penyelesaian",
         "cluster": "Cluster", "durasi": "Durasi", "created_by": "Created_By",
     })
@@ -490,22 +499,24 @@ def insert_pengaduan(data: dict) -> int:
     """Insert satu baris. Return id baru."""
     sql = """
     INSERT INTO pengaduan
-      (cabang, bulan, bulan_num, nama_pelanggan, no_sambung, blok,
+      (cabang, bulan, bulan_num, nama_pelanggan, no_telp, no_sambung, blok,
        kebocoran_pipa_dinas, kebocoran_instalatur, supply_air,
        pembayaran_melonjak, water_meter_rusak, lainnya,
-       alamat, rincian, status, tgl_pengaduan, tgl_penyelesaian,
+       alamat, foto, rincian, status, tgl_pengaduan, tgl_penyelesaian,
        cluster, durasi, created_by)
     VALUES
-      (%(cabang)s, %(bulan)s, %(bulan_num)s, %(nama_pelanggan)s,
+      (%(cabang)s, %(bulan)s, %(bulan_num)s, %(nama_pelanggan)s, %(no_telp)s,
        %(no_sambung)s, %(blok)s,
        %(kebocoran_pipa_dinas)s, %(kebocoran_instalatur)s, %(supply_air)s,
        %(pembayaran_melonjak)s, %(water_meter_rusak)s, %(lainnya)s,
-       %(alamat)s, %(rincian)s, %(status)s,
+       %(alamat)s, %(foto)s, %(rincian)s, %(status)s,
        %(tgl_pengaduan)s, %(tgl_penyelesaian)s,
        %(cluster)s, %(durasi)s, %(created_by)s)
     """
-    # Pastikan key 'blok' dan 'lainnya' ada
+    # Pastikan default key opsional ada
+    data.setdefault("no_telp", None)
     data.setdefault("blok", None)
+    data.setdefault("foto", None)
     data.setdefault("lainnya", 0)
 
     with get_conn() as conn:
@@ -522,19 +533,21 @@ def insert_pengaduan(data: dict) -> int:
 # ─────────────────────────────────────────────────────────────────────────────
 def update_pengaduan(row_id: int, data: dict) -> None:
     """Update satu baris berdasarkan id."""
+    data.setdefault("no_telp", None)
     data.setdefault("blok", None)
+    data.setdefault("foto", None)
     data.setdefault("lainnya", 0)
     data["id"] = row_id
 
     sql = """
     UPDATE pengaduan SET
       cabang=%(cabang)s, bulan=%(bulan)s, bulan_num=%(bulan_num)s,
-      nama_pelanggan=%(nama_pelanggan)s, no_sambung=%(no_sambung)s,
+      nama_pelanggan=%(nama_pelanggan)s, no_telp=%(no_telp)s, no_sambung=%(no_sambung)s,
       kebocoran_pipa_dinas=%(kebocoran_pipa_dinas)s,
       kebocoran_instalatur=%(kebocoran_instalatur)s,
       supply_air=%(supply_air)s, pembayaran_melonjak=%(pembayaran_melonjak)s,
       water_meter_rusak=%(water_meter_rusak)s, lainnya=%(lainnya)s,
-      alamat=%(alamat)s, rincian=%(rincian)s, status=%(status)s,
+      alamat=%(alamat)s, foto=%(foto)s, rincian=%(rincian)s, status=%(status)s,
       tgl_pengaduan=%(tgl_pengaduan)s, tgl_penyelesaian=%(tgl_penyelesaian)s,
       cluster=%(cluster)s, durasi=%(durasi)s
     WHERE id=%(id)s

@@ -18,3 +18,14 @@ Thumbs.db
 
 # Streamlit secrets (JANGAN di-upload ke GitHub!)
 .streamlit/secrets.toml
+
+# Editor settings
+.vscode/
+
+# Temporary test & debug scripts
+debug_*.py
+diagnose.py
+test_*.py
+
+# File unggahan pengguna (gambar upload lokal)
+static/uploads/*

@@ -1,16 +1,16 @@
 """
 portal.py — Web Portal Pengaduan Pelanggan PDAM Tirta Jaya Mandiri
-Jalankan: python portal.py  (default port 5000)
-
-Pastikan file ini diletakkan di folder yang sama dengan db.py,
-atau sesuaikan sys.path di bawah.
+Jalankan: .\venv\Scripts\python.exe portal.py  (default port 5000)
+atau aktifkan venv terlebih dahulu: .\venv\Scripts\Activate.ps1
 """
 
 import sys
 import os
+import uuid
 from pathlib import Path
 from datetime import date, datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from werkzeug.utils import secure_filename
 
 # ── Load .env untuk development lokal (di Railway, .env tidak ada — tidak masalah) ──
 try:
@@ -29,6 +29,18 @@ sys.path.insert(0, str(Path(__file__).parent / "dashboard_pengaduan"))
 import db  # noqa: E402  (db.py dari project Streamlit yang sudah ada)
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "pdam_portal_secret_key_2025")
+
+# Konfigurasi Upload Folder Gambar
+UPLOAD_FOLDER = Path(__file__).parent / "static" / "uploads"
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = str(UPLOAD_FOLDER)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Maksimal 16MB file upload
+
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'}
+
+def allowed_file(filename):
+    return Path(filename).suffix.lower() in ALLOWED_EXTENSIONS
 
 BULAN_ORDER = [
     "JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI",
@@ -65,18 +77,46 @@ def submit():
     """Terima POST dari form, simpan ke MySQL, redirect ke halaman sukses."""
     f = request.form
 
+    # Helper function untuk respon error (flash / json)
+    def err_response(msg, code=400):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+            return jsonify({"error": msg}), code
+        flash(msg, "error")
+        return redirect(url_for("index"))
+
     # ── Ambil & validasi field wajib ────────────────────────────────────────
     nama = f.get("nama_pelanggan", "").strip()[:150]
     if not nama:
-        return jsonify({"error": "Nama pelanggan wajib diisi"}), 400
+        return err_response("Nama pelanggan wajib diisi.", 400)
+
+    no_telp = f.get("no_telp", "").strip()[:30]
+    if not no_telp:
+        return err_response("Nomor telepon wajib diisi.", 400)
 
     cabang = f.get("cabang", "").strip().upper()
     if cabang not in db.BRANCH_COORDS:
-        return jsonify({"error": "Cabang tidak valid"}), 400
+        return err_response("Cabang / Wilayah Layanan tidak valid.", 400)
 
-    # ── Field opsional ──────────────────────────────────────────────────────
+    # ── Field opsional & alamat ──────────────────────────────────────────────
     no_sambung = f.get("no_sambung", "").strip()[:50] or None
-    alamat     = f.get("alamat_rincian", "").strip() or None
+    alamat     = f.get("alamat", "").strip() or f.get("alamat_rincian", "").strip() or None
+    rincian    = f.get("rincian", "").strip() or None
+
+    # ── Upload Gambar (Foto Bukti) ──────────────────────────────────────────
+    foto_path = None
+    if "foto" in request.files:
+        foto_file = request.files["foto"]
+        if foto_file and foto_file.filename != "":
+            if allowed_file(foto_file.filename):
+                filename = secure_filename(foto_file.filename)
+                ext = Path(filename).suffix.lower()
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                unique_filename = f"{timestamp}_{uuid.uuid4().hex[:8]}{ext}"
+                save_path = UPLOAD_FOLDER / unique_filename
+                foto_file.save(save_path)
+                foto_path = f"uploads/{unique_filename}"
+            else:
+                return err_response("Format gambar tidak didukung (gunakan JPG, PNG, WEBP, GIF).", 400)
 
     # ── Jenis pengaduan (checkbox) ──────────────────────────────────────────
     kpd = 1 if f.get("kebocoran_pipa") else 0
@@ -98,6 +138,7 @@ def submit():
         "bulan":                 bulan_nama,
         "bulan_num":             bulan_num,
         "nama_pelanggan":        nama,
+        "no_telp":               no_telp,
         "no_sambung":            no_sambung,
         "blok":                  None,
         "kebocoran_pipa_dinas":  kpd,
@@ -107,7 +148,8 @@ def submit():
         "water_meter_rusak":     wmr,
         "lainnya":               lai,
         "alamat":                alamat,
-        "rincian":               None,
+        "foto":                  foto_path,
+        "rincian":               rincian,
         "status":                "BELUM DILAKSANAKAN",
         "tgl_pengaduan":         tgl_today,
         "tgl_penyelesaian":      None,
@@ -120,7 +162,7 @@ def submit():
         new_id = db.insert_pengaduan(data)
     except Exception as e:
         app.logger.error(f"DB error: {e}")
-        return jsonify({"error": "Gagal menyimpan pengaduan. Coba lagi."}), 500
+        return err_response("Gagal menyimpan pengaduan. Coba lagi.", 500)
 
     # Redirect ke halaman sukses dengan nomor tiket
     return redirect(url_for("sukses", tiket=new_id))

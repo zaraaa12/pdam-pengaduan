@@ -172,10 +172,10 @@
             {% endif %}
           {% endwith %}
 
-          <!-- FORM — action POST ke /submit -->
-          <form class="space-y-unit-lg" id="complaintForm" method="POST" action="/submit">
+          <!-- FORM — action POST ke /submit dengan enctype multipart/form-data untuk upload file -->
+          <form class="space-y-unit-lg" id="complaintForm" method="POST" action="/submit" enctype="multipart/form-data">
 
-            <!-- Baris 1: Nama & No Sambung -->
+            <!-- Baris 1: Nama & No Telepon -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-unit-lg">
               <div class="space-y-unit-xs">
                 <label class="font-label-sm text-label-sm text-on-surface-variant block" for="nama_pelanggan">
@@ -191,6 +191,23 @@
                 >
               </div>
               <div class="space-y-unit-xs">
+                <label class="font-label-sm text-label-sm text-on-surface-variant block" for="no_telp">
+                  No. Telepon / HP <span class="text-error">* (Wajib Diisi)</span>
+                </label>
+                <input
+                  class="w-full rounded-lg border-outline-variant focus:border-secondary focus:ring-secondary transition-all px-unit-md py-unit-sm bg-surface-container-low"
+                  id="no_telp"
+                  name="no_telp"
+                  placeholder="Contoh: 081234567890"
+                  required
+                  type="tel"
+                >
+              </div>
+            </div>
+
+            <!-- Baris 2: No Sambung & Cabang -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-unit-lg">
+              <div class="space-y-unit-xs">
                 <label class="font-label-sm text-label-sm text-on-surface-variant block" for="no_sambung">
                   No. Sambung <span class="text-on-surface-variant/50">(Opsional)</span>
                 </label>
@@ -202,10 +219,6 @@
                   type="text"
                 >
               </div>
-            </div>
-
-            <!-- Baris 2: Cabang & Tanggal -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-unit-lg">
               <div class="space-y-unit-xs">
                 <label class="font-label-sm text-label-sm text-on-surface-variant block" for="cabang">
                   Cabang / Wilayah Layanan <span class="text-error">*</span>
@@ -222,6 +235,10 @@
                   {% endfor %}
                 </select>
               </div>
+            </div>
+
+            <!-- Baris 3: Tanggal & Upload Gambar -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-unit-lg">
               <div class="space-y-unit-xs">
                 <label class="font-label-sm text-label-sm text-on-surface-variant block">
                   Tanggal Pengaduan
@@ -234,6 +251,27 @@
                 >
                 <!-- Field tersembunyi ISO date untuk backend -->
                 <input type="hidden" name="tgl_pengaduan" value="{{ tanggal_iso }}">
+              </div>
+              <div class="space-y-unit-xs">
+                <label class="font-label-sm text-label-sm text-on-surface-variant block" for="foto">
+                  Upload Foto / Gambar Bukti <span class="text-on-surface-variant/50">(Opsional)</span>
+                </label>
+                <input
+                  class="w-full rounded-lg border border-outline-variant bg-surface-container-low px-unit-md py-1.5 text-body-md text-on-surface file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-label-sm file:font-semibold file:bg-secondary file:text-on-primary hover:file:bg-primary file:cursor-pointer cursor-pointer transition-all"
+                  id="foto"
+                  name="foto"
+                  accept="image/*"
+                  type="file"
+                  onchange="previewImage(event)"
+                >
+                <!-- Preview Gambar -->
+                <div id="imagePreviewContainer" class="hidden mt-2 flex items-center gap-3 p-2 border border-outline-variant/40 rounded-lg bg-surface-container-lowest">
+                  <img id="imagePreview" class="w-16 h-16 object-cover rounded-md border border-outline-variant/40" alt="Preview Gambar">
+                  <div class="text-xs text-on-surface-variant overflow-hidden">
+                    <p id="imageFileName" class="font-semibold truncate text-primary"></p>
+                    <p id="imageFileSize" class="text-on-surface-variant/70"></p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -277,18 +315,32 @@
               </div>
             </div>
 
-            <!-- Alamat & Rincian -->
+            <!-- Alamat Lengkap -->
             <div class="space-y-unit-xs">
-              <label class="font-label-sm text-label-sm text-on-surface-variant block" for="alamat_rincian">
-                Alamat &amp; Rincian Keluhan <span class="text-error">*</span>
+              <label class="font-label-sm text-label-sm text-on-surface-variant block" for="alamat">
+                Alamat Lengkap Lokasi Pengaduan <span class="text-error">*</span>
               </label>
               <textarea
                 class="w-full rounded-lg border-outline-variant focus:border-secondary focus:ring-secondary transition-all px-unit-md py-unit-sm bg-surface-container-low"
-                id="alamat_rincian"
-                name="alamat_rincian"
-                placeholder="Tuliskan alamat lengkap dan detail kendala yang dialami..."
+                id="alamat"
+                name="alamat"
+                placeholder="Tuliskan alamat lengkap lokasi kendala (Nama jalan, RT/RW, Desa/Kelurahan, Patokan)..."
                 required
-                rows="5"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <!-- Rincian Keluhan -->
+            <div class="space-y-unit-xs">
+              <label class="font-label-sm text-label-sm text-on-surface-variant block" for="rincian">
+                Rincian / Detail Keluhan <span class="text-on-surface-variant/50">(Opsional)</span>
+              </label>
+              <textarea
+                class="w-full rounded-lg border-outline-variant focus:border-secondary focus:ring-secondary transition-all px-unit-md py-unit-sm bg-surface-container-low"
+                id="rincian"
+                name="rincian"
+                placeholder="Jelaskan detail kendala atau kronologi pengaduan yang dialami..."
+                rows="3"
               ></textarea>
             </div>
 
@@ -333,7 +385,7 @@
                 <div class="font-bold text-body-lg">+62 815-6354-7466</div>
               </div>
             </a>
-            <a class="flex items-center gap-unit-md bg-white/10 hover:bg-white/20 p-unit-sm rounded-lg transition-all group" href="https://l1nq.com/zjrhv4a" target="_blank">
+            <a class="flex items-center gap-unit-md bg-white/10 hover:bg-white/20 p-unit-sm rounded-lg transition-all group" href="https://linktr.ee/perumdam_am_tjm?utm_source=linktree_profile_share&ltsid=d5b5d6ec-ab9d-400c-9aaf-a78d34031c27" target="_blank">
               <div class="bg-green-600 p-unit-xs rounded-md">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
               </div>
@@ -418,6 +470,29 @@
 </footer>
 
 <script>
+  // Preview Gambar
+  function previewImage(event) {
+    const file = event.target.files[0];
+    const container = document.getElementById('imagePreviewContainer');
+    const preview = document.getElementById('imagePreview');
+    const fileName = document.getElementById('imageFileName');
+    const fileSize = document.getElementById('imageFileSize');
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        preview.src = e.target.result;
+        fileName.textContent = file.name;
+        fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        container.classList.remove('hidden');
+      }
+      reader.readAsDataURL(file);
+    } else {
+      container.classList.add('hidden');
+      preview.src = '';
+    }
+  }
+
   // Loading state saat tombol ditekan
   document.getElementById('complaintForm').addEventListener('submit', function(e) {
     const btn  = document.getElementById('submitBtn');
